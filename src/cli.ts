@@ -24,6 +24,11 @@ type Paths = {
 const VERSION = "0.1.0";
 const SECRET_KEY_RE = /(key|token|secret|password|credential|auth|cookie|session|bearer|private)/i;
 const CLI_NAME = "ccs";
+const DEFAULT_MODEL_ENV_KEYS = [
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL",
+] as const;
 
 function main() {
   const args = process.argv.slice(2);
@@ -206,6 +211,11 @@ function runNew(paths: Paths, flags: Record<string, string | boolean>) {
       fail("internal error: profile.env is not an object");
     }
     env.ANTHROPIC_MODEL = providerModel;
+    // If a provider model is specified, default all Claude Code tiers to it unless overridden later.
+    // This supports proxy-side routing (e.g. volc/aliyun) where "haiku/sonnet/opus" should map to one provider model.
+    for (const key of DEFAULT_MODEL_ENV_KEYS) {
+      env[key] = providerModel;
+    }
   }
   atomicWriteJson(targetFile, profile);
 
@@ -309,6 +319,8 @@ function runUse(paths: Paths, profileName: string | undefined, flags: Record<str
   }
   const merged = deepMerge(base, profile.data);
   applyBaseOverrides(base, merged);
+  // Ensure optional env mappings present in the profile are carried into the final merged config.
+  applyProfileEnvOverrides(profile.data, merged);
   validateMergedConfig(merged, profile.name, paths);
 
   if (flags["dry-run"]) {
@@ -330,6 +342,22 @@ function runUse(paths: Paths, profileName: string | undefined, flags: Record<str
   console.log(`Switched to profile: ${profile.name}`);
   console.log(`Wrote ${paths.targetFile}`);
   console.log(`Backup: ${paths.backupFile}`);
+}
+
+function applyProfileEnvOverrides(profile: JsonObject, merged: JsonObject) {
+  const profileEnv = getObject(profile.env);
+  const mergedEnv = getObject(merged.env);
+  if (!profileEnv || !mergedEnv) {
+    return;
+  }
+  for (const key of DEFAULT_MODEL_ENV_KEYS) {
+    if (key in profileEnv) {
+      const value = profileEnv[key];
+      if (value !== undefined) {
+        mergedEnv[key] = clone(value);
+      }
+    }
+  }
 }
 
 function runRollback(paths: Paths, flags: Record<string, string | boolean>) {
@@ -728,11 +756,11 @@ Defaults:
   profiles:  ~/.claude/profiles/*.json
   target:    ~/.claude/settings.json
 
-Notes:
+  Notes:
   - base file should contain shared config only (no baseurl/token).
   - provider-specific ANTHROPIC_BASE_URL and ANTHROPIC_AUTH_TOKEN belong in profile files.
   - new creates ~/.claude/profiles/<name>.json interactively if flags are omitted.
-  - new --model writes env.ANTHROPIC_MODEL (provider-side model routing).
+  - new --model writes env.ANTHROPIC_MODEL and env.ANTHROPIC_DEFAULT_{HAIKU,SONNET,OPUS}_MODEL (provider-side model routing).
   - rollback swaps settings.json and settings.switcher.backup.json.
   - list shows numbered profiles; use accepts either a profile name or a number.
   - use writes ~/.claude/settings.json atomically and saves the previous file to settings.switcher.backup.json.

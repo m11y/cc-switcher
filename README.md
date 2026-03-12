@@ -41,7 +41,7 @@ bun run build
 
 - `settings.base.json` should not contain `ANTHROPIC_BASE_URL` or `ANTHROPIC_AUTH_TOKEN`.
 - `new` can create a new profile interactively, or with flags like `--name`, `--base-url`, and `--key`.
-- If you specify `--model`, the profile filename will follow the convention `name-model.json`, and the profile will include `env.ANTHROPIC_MODEL` (provider-side routing).
+- If you specify `--model`, the profile filename will follow the convention `name-model.json`, and the profile will include `env.ANTHROPIC_MODEL` plus `env.ANTHROPIC_DEFAULT_{HAIKU,SONNET,OPUS}_MODEL` all set to that value (provider-side routing).
 - Claude Code's top-level `model` is always taken from `settings.base.json` (kept stable, e.g. `opus`).
 - `list` prints numbered profiles, and `use` accepts either a profile name or a profile number.
 - Each profile JSON usually only needs:
