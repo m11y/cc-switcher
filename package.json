@@ -1,0 +1,19 @@
+{
+  "name": "cc-switcher",
+  "module": "src/cli.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "bun run ./scripts/build.ts",
+    "compile": "bun build ./src/cli.ts --compile --outfile ./dist/ccs",
+    "install": "bun run ./scripts/install.ts",
+    "dev": "bun run ./src/cli.ts",
+    "check": "bun x tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
