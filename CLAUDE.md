@@ -1,111 +1,50 @@
 ---
-description: Use Bun instead of Node.js, npm, pnpm, or vite.
-globs: "*.ts, *.tsx, *.html, *.css, *.js, *.jsx, package.json"
+description: cc-switcher (ccs) is a Bun-based CLI that switches Claude Code provider profiles by generating ~/.claude/settings.json.
+globs: "src/**/*.ts, scripts/**/*.ts, package.json, tsconfig.json, README.md"
 alwaysApply: false
 ---
 
-Default to using Bun instead of Node.js.
+This repo is a small Bun + TypeScript CLI, compiled into a single binary (`ccs`).
 
-- Use `bun <file>` instead of `node <file>` or `ts-node <file>`
-- Use `bun test` instead of `jest` or `vitest`
-- Use `bun build <file.html|file.ts|file.css>` instead of `webpack` or `esbuild`
-- Use `bun install` instead of `npm install` or `yarn install` or `pnpm install`
-- Use `bun run <script>` instead of `npm run <script>` or `yarn run <script>` or `pnpm run <script>`
-- Use `bunx <package> <command>` instead of `npx <package> <command>`
-- Bun automatically loads .env, so don't use dotenv.
+## Non-Negotiables
 
-## APIs
+- Never commit secrets (tokens/keys/base URLs for private gateways, cookies, etc.). The repo is public.
+- Do not add any sample config that contains real-looking credentials. Use placeholders like `sk-...`.
+- Keep the CLI reversible: `use` must write atomically and keep a backup.
+- Keep the tool dependency-light. Prefer built-in Node/Bun APIs.
 
-- `Bun.serve()` supports WebSockets, HTTPS, and routes. Don't use `express`.
-- `bun:sqlite` for SQLite. Don't use `better-sqlite3`.
-- `Bun.redis` for Redis. Don't use `ioredis`.
-- `Bun.sql` for Postgres. Don't use `pg` or `postgres.js`.
-- `WebSocket` is built-in. Don't use `ws`.
-- Prefer `Bun.file` over `node:fs`'s readFile/writeFile
-- Bun.$`ls` instead of execa.
+## Commands (local dev)
 
-## Testing
+```bash
+# Typecheck
+bun run check
 
-Use `bun test` to run tests.
+# Run from source
+bun run src/cli.ts --help
+bun run src/cli.ts list
 
-```ts#index.test.ts
-import { test, expect } from "bun:test";
-
-test("hello world", () => {
-  expect(1).toBe(1);
-});
+# Build + install binary to ~/.local/bin/ccs
+bun install
+bun run build
+ccs --help
 ```
 
-## Frontend
+## Code Conventions
 
-Use HTML imports with `Bun.serve()`. Don't use `vite`. HTML imports fully support React, CSS, Tailwind.
+- Runtime is Bun, but using `node:*` stdlib modules (fs/path/os) is fine and expected for portability.
+- TypeScript is `strict` with `noUncheckedIndexedAccess`; avoid `any` and handle `undefined` explicitly.
+- Avoid logging merged configs unredacted. If you must print config, redact secrets (token/key/password/etc).
+- When adding new env fields:
+  - Profiles are authoritative for provider-specific values under `env`.
+  - `settings.base.json` must not include provider `ANTHROPIC_BASE_URL` or `ANTHROPIC_AUTH_TOKEN`.
 
-Server:
+## Design Notes
 
-```ts#index.ts
-import index from "./index.html"
+- `init` produces `settings.base.json` by removing provider-specific env fields from an existing `settings.json`.
+- `new` writes a minimal profile json into `~/.claude/profiles/`.
+- `use` merges base + profile and writes `~/.claude/settings.json` atomically.
 
-Bun.serve({
-  routes: {
-    "/": index,
-    "/api/users/:id": {
-      GET: (req) => {
-        return new Response(JSON.stringify({ id: req.params.id }));
-      },
-    },
-  },
-  // optional websocket support
-  websocket: {
-    open: (ws) => {
-      ws.send("Hello, world!");
-    },
-    message: (ws, message) => {
-      ws.send(message);
-    },
-    close: (ws) => {
-      // handle close
-    }
-  },
-  development: {
-    hmr: true,
-    console: true,
-  }
-})
-```
+## What Not To Do
 
-HTML files can import .tsx, .jsx or .js files directly and Bun's bundler will transpile & bundle automatically. `<link>` tags can point to stylesheets and Bun's CSS bundler will bundle.
-
-```html#index.html
-<html>
-  <body>
-    <h1>Hello, world!</h1>
-    <script type="module" src="./frontend.tsx"></script>
-  </body>
-</html>
-```
-
-With the following `frontend.tsx`:
-
-```tsx#frontend.tsx
-import React from "react";
-import { createRoot } from "react-dom/client";
-
-// import .css files directly and it works
-import './index.css';
-
-const root = createRoot(document.body);
-
-export default function Frontend() {
-  return <h1>Hello, world!</h1>;
-}
-
-root.render(<Frontend />);
-```
-
-Then, run index.ts
-
-```sh
-bun --hot ./index.ts
-```
-
-For more information, read the Bun API docs in `node_modules/bun-types/docs/**.mdx`.
+- Don't introduce a web server / frontend tooling (vite/react/etc). This is a CLI repo.
+- Don't add heavy frameworks for argument parsing. Keep `parseArgs` simple.
