@@ -2,6 +2,16 @@
 
 Use one shared Claude Code base config plus tiny provider overlays, then generate `~/.claude/settings.json` on demand.
 
+## Install (binary)
+
+Build and install the `ccs` binary to `~/.local/bin/ccs`:
+
+```bash
+bun install
+bun run build
+ccs --help
+```
+
 ## Layout
 
 ```text
@@ -16,26 +26,44 @@ Use one shared Claude Code base config plus tiny provider overlays, then generat
   .switcher-state.json
 ```
 
+## Quick start
+
+```bash
+# 1) Initialize from your current ~/.claude/settings.json (creates settings.base.json + profiles/)
+ccs init
+
+# 2) Create a provider profile
+ccs new --name aliyun --base-url https://example.com/apps/anthropic --key 'sk-...' --model glm-5
+
+# 3) Switch (writes ~/.claude/settings.json atomically, keeps a backup)
+ccs use aliyun-glm-5
+
+# 4) Inspect / validate
+ccs current
+ccs list
+ccs validate
+```
+
 ## Commands
 
 ```bash
-bun run src/cli.ts list
-bun run src/cli.ts current
-bun run src/cli.ts new
-bun run src/cli.ts use liaobots
-bun run src/cli.ts use
-bun run src/cli.ts dump liaobots
-bun run src/cli.ts validate
+ccs init [--from <file>] [--force]
+ccs new [--name <name>] [--base-url <url>] [--key <token>] [--model <provider-model>] [--force]
+ccs list [--json]
+ccs current [--json]
+ccs use [profile|number] [--dry-run]
+ccs rollback
+ccs dump <profile> [--raw]
+ccs validate [--json]
+ccs paths
 ```
 
-## Build binary
+## Dev (run from source)
 
 ```bash
-bun run build
-./dist/ccs list
+bun run src/cli.ts --help
+bun run src/cli.ts list
 ```
-
-`bun run build` will also install the binary to `~/.local/bin/ccs`.
 
 ## Notes
 
@@ -44,6 +72,7 @@ bun run build
 - If you specify `--model`, the profile filename will follow the convention `name-model.json`, and the profile will include `env.ANTHROPIC_MODEL` plus `env.ANTHROPIC_DEFAULT_{HAIKU,SONNET,OPUS}_MODEL` all set to that value (provider-side routing).
 - Claude Code's top-level `model` is always taken from `settings.base.json` (kept stable, e.g. `opus`).
 - `list` prints numbered profiles, and `use` accepts either a profile name or a profile number.
+- Use `--config-dir <dir>` to point to a different Claude config directory (defaults to `~/.claude`).
 - Each profile JSON usually only needs:
 
 ```json
